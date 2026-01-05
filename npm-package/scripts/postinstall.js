@@ -28,8 +28,7 @@ function getPlatformInfo() {
       platformName = 'linux';
       break;
     case 'android':
-      // Android/Termux uses Linux binaries
-      platformName = 'linux';
+      platformName = 'android';
       break;
     case 'win32':
       platformName = 'windows';
@@ -149,54 +148,10 @@ function extractZip(zipPath, destDir, binaryName) {
   }
 }
 
-// Build from source (for Android/Termux)
-function buildFromSource(binaryPath) {
-  console.log('Building bd from source for Android/Termux...');
-
-  try {
-    // Check if Go is installed
-    try {
-      execSync('go version', { stdio: 'pipe' });
-    } catch (err) {
-      throw new Error('Go is not installed. Please install Go to build bd for Android/Termux.\n' +
-        'Install Go in Termux: pkg install golang');
-    }
-
-    // Check if we're in the git repo (for development installs)
-    const repoRoot = path.resolve(__dirname, '../..');
-    const cmdBdPath = path.join(repoRoot, 'cmd', 'bd');
-
-    if (fs.existsSync(cmdBdPath)) {
-      // Build from the repository
-      console.log('Building from repository source...');
-      execSync(`go build -o "${binaryPath}" ./cmd/bd`, {
-        cwd: repoRoot,
-        stdio: 'inherit'
-      });
-    } else {
-      // For npm installs, guide user to install from source
-      throw new Error(
-        'Android/Termux requires building from source.\n\n' +
-        'Please install using one of these methods:\n\n' +
-        '1. Install from source with Go:\n' +
-        '   go install github.com/steveyegge/beads/cmd/bd@latest\n\n' +
-        '2. Clone and build:\n' +
-        '   git clone https://github.com/steveyegge/beads.git\n' +
-        '   cd beads\n' +
-        '   go build -o bd ./cmd/bd\n' +
-        '   mv bd ~/.local/bin/  # or any directory in your PATH'
-      );
-    }
-  } catch (err) {
-    throw err;
-  }
-}
-
 // Main installation function
 async function install() {
   try {
     const { platformName, archName, binaryName } = getPlatformInfo();
-    const platform = os.platform();
 
     console.log(`Installing bd v${VERSION} for ${platformName}-${archName}...`);
 
@@ -207,13 +162,6 @@ async function install() {
     // Ensure bin directory exists
     if (!fs.existsSync(binDir)) {
       fs.mkdirSync(binDir, { recursive: true });
-    }
-
-    // Handle Android/Termux specially
-    if (platform === 'android') {
-      buildFromSource(binaryPath);
-      console.log(`✓ bd built successfully for Android/Termux`);
-      return;
     }
 
     // Construct download URL
@@ -243,7 +191,7 @@ async function install() {
       const output = execSync(`"${binaryPath}" version`, { encoding: 'utf8' });
       console.log(`✓ bd installed successfully: ${output.trim()}`);
     } catch (err) {
-      console.warn('Warning: Could not verify binary version');
+      throw new Error(`Binary verification failed: ${err.message}`);
     }
 
   } catch (err) {
